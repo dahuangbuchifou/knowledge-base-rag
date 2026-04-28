@@ -703,95 +703,46 @@
             
             abortController = new AbortController();
             
+            // 同步模式请求（非流式）
             fetch('/api/query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ question: question }),
                 signal: abortController.signal
             })
-            .then(response => {
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
+            .then(response => response.json())
+            .then(data => {
+                questionInput.disabled = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = '发送';
+                questionInput.focus();
                 
-                function read() {
-                    return reader.read().then(({ done, value }) => {
-                        if (done) {
-                            if (!isError && fullText) {
-                                currentQuestion = question;
-                                currentAnswer = fullText;
-                                
-                                // 构建最终消息（含引用）
-                                let finalHTML = escapeHtml(fullText);
-                                if (finalCitations.length > 0) {
-                                    finalHTML += renderCitations(finalCitations);
-                                }
-                                
-                                const finalDiv = appendMessage('assistant', finalHTML, true);
-                                msgDiv.remove();
-                            } else if (isError) {
-                                // 保持错误消息
-                            } else {
-                                contentEl.innerHTML = '❌ 未收到回答';
-                            }
-                            questionInput.disabled = false;
-                            sendBtn.disabled = false;
-                            sendBtn.textContent = '发送';
-                            questionInput.focus();
-                            return;
-                        }
-                        
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop() || '';
-                        
-                        for (const line of lines) {
-                            if (line.startsWith('data: ')) {
-                                const dataStr = line.slice(6);
-                                if (dataStr === '[DONE]') continue;
-                                
-                                try {
-                                    const data = JSON.parse(dataStr);
-                                    
-                                    if (data.error) {
-                                        isError = true;
-                                        contentEl.innerHTML = '❌ ' + data.error;
-                                        contentEl.classList.add('error');
-                                        const cursor = contentEl.querySelector('.typing-cursor');
-                                        if (cursor) cursor.remove();
-                                        questionInput.disabled = false;
-                                        sendBtn.disabled = false;
-                                        sendBtn.textContent = '发送';
-                                        questionInput.focus();
-                                        return;
-                                    }
-                                    
-                                    if (data.text !== undefined) {
-                                        fullText = data.text;
-                                        contentEl.innerHTML = escapeHtml(fullText) + '<span class="typing-cursor"></span>';
-                                        chatBox.scrollTop = chatBox.scrollHeight;
-                                    }
-                                    
-                                    // 提取引用数据
-                                    if (data.citations && data.citations.length > 0) {
-                                        finalCitations = data.citations;
-                                    }
-                                } catch (e) {}
-                            }
-                        }
-                        
-                        return read();
-                    });
+                if (data.error) {
+                    contentEl.innerHTML = '❌ ' + data.error;
+                    contentEl.classList.add('error');
+                    return;
                 }
                 
-                return read();
+                if (data.answer) {
+                    currentQuestion = question;
+                    currentAnswer = data.answer;
+                    
+                    // 构建最终消息（含引用）
+                    let finalHTML = escapeHtml(data.answer);
+                    if (data.citations && data.citations.length > 0) {
+                        finalHTML += renderCitations(data.citations);
+                    }
+                    
+                    const finalDiv = appendMessage('assistant', finalHTML, true);
+                    msgDiv.remove();
+                } else {
+                    contentEl.innerHTML = '❌ 未收到回答';
+                }
             })
             .catch(err => {
                 if (err.name === 'AbortError') return;
                 contentEl.innerHTML = '❌ 请求失败：' + err.message;
                 contentEl.classList.add('error');
-                const cursor = contentEl.querySelector('.typing-cursor');
-                if (cursor) cursor.remove();
                 questionInput.disabled = false;
                 sendBtn.disabled = false;
                 sendBtn.textContent = '发送';
