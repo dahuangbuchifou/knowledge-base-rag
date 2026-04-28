@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 发动机排放标准知识库</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .header h1 { font-size: 26px; margin-bottom: 8px; }
+        .header p { opacity: 0.9; font-size: 13px; margin-bottom: 10px; }
+        .header .version { 
+            background: rgba(255,255,255,0.2); 
+            padding: 5px 15px; 
+            border-radius: 15px; 
+            font-size: 12px; 
+            display: inline-block;
+        }
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 25px 30px;
+        }
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+        }
+        .message.user { flex-direction: row-reverse; }
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .message.assistant .avatar { background: #667eea; margin-right: 15px; }
+        .message.user .avatar { background: #4CAF50; margin-left: 15px; }
+        .content {
+            max-width: 75%;
+            padding: 15px 20px;
+            border-radius: 15px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+        .message.assistant .content { background: #f0f2f5; border-bottom-right-radius: 5px; white-space: pre-wrap; }
+        .message.user .content { background: #667eea; color: white; border-bottom-left-radius: 5px; }
+        .input-area {
+            border-top: 1px solid #eee;
+            flex-shrink: 0;
+        }
+        .guide {
+            padding: 12px 30px;
+            background: #f8f9fa;
+            font-size: 13px;
+            color: #666;
+        }
+        .guide strong { color: #667eea; }
+        .input-box {
+            padding: 15px 30px 20px;
+            display: flex;
+            gap: 15px;
+        }
+        .input-box input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .input-box input:focus { border-color: #667eea; }
+        .input-box button {
+            padding: 15px 35px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            min-width: 80px;
+        }
+        .input-box button:hover { transform: scale(1.05); }
+        .input-box button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .loading { color: #999; font-style: italic; }
+        .error { color: #f44336; background: #ffebee; padding: 10px 15px; border-radius: 10px; }
+        
+        /* ========== 反馈按钮 ========== */
+        .feedback-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #e8e8e8;
+        }
+        .feedback-btn {
+            background: none;
+            border: 1px solid #e0e0e0;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #555;
+        }
+        .feedback-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            transform: scale(1.05);
+        }
+        .feedback-btn.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .feedback-label { font-size: 12px; color: #999; }
+        
+        /* ========== 反馈弹窗 ========== */
+        .feedback-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .feedback-overlay.active { display: flex; }
+        .feedback-modal {
+            background: white;
+            border-radius: 16px;
+            padding: 25px 30px;
+            width: 90%;
+            max-width: 420px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            animation: modalIn 0.25s ease-out;
+        }
+        @keyframes modalIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .feedback-modal h3 { margin-bottom: 15px; color: #333; }
+        .feedback-modal textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+            outline: none;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+        .feedback-modal textarea:focus { border-color: #667eea; }
+        .feedback-modal .hint { font-size: 12px; color: #999; margin: 8px 0 15px; }
+        .feedback-modal .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .feedback-modal .modal-actions button {
+            padding: 10px 24px;
+            border-radius: 20px;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-cancel { background: #f0f0f0; color: #666; }
+        .btn-cancel:hover { background: #e0e0e0; }
+        .btn-submit { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-submit:hover { transform: scale(1.05); }
+        
+        /* ========== 成功提示 ========== */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 14px;
+            box-shadow: 0 4px 15px rgba(76,175,80,0.4);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 2000;
+            pointer-events: none;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        @media (max-width: 600px) {
+            .container { height: 100vh; border-radius: 0; }
+            .content { max-width: 85%; font-size: 14px; }
+            .header h1 { font-size: 20px; }
+            .header p { font-size: 12px; }
+            .chat-box { padding: 15px 20px; }
+            .input-box { padding: 15px 20px 20px; }
+            .guide { padding: 10px 20px; font-size: 12px; }
+            .input-box button { min-width: 60px; padding: 15px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 发动机排放标准知识库</h1>
+            <p>基于 GB17691-2018 和 GB/T17692-2024 标准</p>
+            <div class="version">📅 2026-04-27 | v1.0</div>
+        </div>
+        
+        <div class="chat-box" id="chatBox">
+            <div class="message assistant">
+                <div class="avatar">🤖</div>
+                <div class="content">你好！我是发动机排放标准专家助手，可以帮你查询排放限值、测试流程、公式计算等。请问有什么可以帮你？</div>
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <div class="guide">
+                <strong>💡 示例问题：</strong>国六阶段ⅥB 的 NOx 限值是多少？ | WHTC+WHSC 测试循环怎么理解？
+            </div>
+            <div class="input-box">
+                <input type="text" id="questionInput" placeholder="请输入问题..." onkeypress="if(event.keyCode===13) sendQuestion()">
+                <button onclick="sendQuestion()" id="sendBtn">发送</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 反馈弹窗 -->
+    <div class="feedback-overlay" id="feedbackOverlay">
+        <div class="feedback-modal">
+            <h3 id="feedbackTitle">💡 补充建议</h3>
+            <textarea id="feedbackComment" placeholder="请输入您的意见（选填）..."></textarea>
+            <div class="hint">您的反馈将帮助我们改进回答质量</div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeFeedback()">取消</button>
+                <button class="btn-submit" onclick="submitFeedback()">提交</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 成功提示 -->
+    <div class="toast" id="toast">✅ 感谢您的反馈！</div>
+    
+    <script>
+        const chatBox = document.getElementById('chatBox');
+        const questionInput = document.getElementById('questionInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const feedbackOverlay = document.getElementById('feedbackOverlay');
+        const feedbackComment = document.getElementById('feedbackComment');
+        const feedbackTitle = document.getElementById('feedbackTitle');
+        const toast = document.getElementById('toast');
+        
+        // 当前会话的问答上下文（用于反馈时关联）
+        let currentQuestion = '';
+        let currentAnswer = '';
+        let pendingRating = '';
+        
+        function appendMessage(role, content, withFeedback) {
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            const isError = content.startsWith('❌');
+            
+            let feedbackHTML = '';
+            if (withFeedback && role === 'assistant' && !isError) {
+                feedbackHTML = `
+                    <div class="feedback-bar">
+                        <span class="feedback-label">这个答案有帮助吗？</span>
+                        <button class="feedback-btn" onclick="openFeedback('👍', this)">👍 有用</button>
+                        <button class="feedback-btn" onclick="openFeedback('👎', this)">👎 无用</button>
+                        <button class="feedback-btn" onclick="openFeedback('💡', this)">💡 补充建议</button>
+                    </div>`;
+            }
+            
+            div.innerHTML = `<div class="avatar">${role === 'assistant' ? '🤖' : '👤'}</div><div class="content ${isError ? 'error' : ''}">${content}</div>${feedbackHTML}`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        
+        // ========== 反馈功能 ==========
+        
+        // 打开反馈弹窗
+        function openFeedback(rating, btnEl) {
+            // 标记选中按钮
+            document.querySelectorAll('.feedback-btn').forEach(b => b.classList.remove('selected'));
+            btnEl.classList.add('selected');
+            
+            pendingRating = rating;
+            const titles = { '👍': '👍 觉得有用？', '👎': '👎 觉得无用？', '💡': '💡 补充建议' };
+            feedbackTitle.textContent = titles[rating] || '💡 补充建议';
+            feedbackComment.value = '';
+            feedbackOverlay.classList.add('active');
+            feedbackComment.focus();
+        }
+        
+        // 关闭反馈弹窗
+        function closeFeedback() {
+            feedbackOverlay.classList.remove('active');
+            // 清除选中状态
+            document.querySelectorAll('.feedback-btn').forEach(b => b.classList.remove('selected'));
+        }
+        
+        // 提交反馈
+        function submitFeedback() {
+            const comment = feedbackComment.value.trim();
+            const overlay = feedbackOverlay;
+            overlay.classList.remove('active');
+            
+            // 清除选中状态
+            document.querySelectorAll('.feedback-btn').forEach(b => b.classList.remove('selected'));
+            
+            // 发送反馈到后端
+            fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: currentQuestion,
+                    answer: currentAnswer,
+                    rating: pendingRating,
+                    comment: comment
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('✅ 感谢您的反馈！');
+                } else {
+                    showToast('❌ 提交失败：' + (data.error || '未知错误'));
+                }
+            })
+            .catch(err => {
+                showToast('❌ 网络错误：' + err.message);
+            });
+        }
+        
+        // 显示提示
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+        
+        // 点击弹窗外部关闭
+        feedbackOverlay.addEventListener('click', function(e) {
+            if (e.target === feedbackOverlay) closeFeedback();
+        });
+        
+        // ========== 问答逻辑 ==========
+        
+        function sendQuestion() {
+            const question = questionInput.value.trim();
+            if (!question) return;
+            
+            appendMessage('user', question);
+            questionInput.value = '';
+            questionInput.disabled = true;
+            sendBtn.disabled = true;
+            sendBtn.textContent = '查询中...';
+            appendMessage('assistant', '<span class="loading">正在查询知识库，请稍候（最长 60 秒）...</span>');
+            
+            fetch('/api/query', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({question: question})
+            })
+            .then(res => res.json())
+            .then(data => {
+                chatBox.lastElementChild.remove();
+                if (data.error) {
+                    appendMessage('assistant', '❌ ' + data.error, false);
+                } else {
+                    currentQuestion = question;
+                    currentAnswer = data.answer;
+                    appendMessage('assistant', data.answer, true);
+                }
+                questionInput.disabled = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = '发送';
+                questionInput.focus();
+            })
+            .catch(err => {
+                chatBox.lastElementChild.remove();
+                appendMessage('assistant', '❌ 请求失败：' + err.message, false);
+                questionInput.disabled = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = '发送';
+            });
+        }
+    </script>
+</body>
+</html>
