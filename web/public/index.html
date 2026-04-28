@@ -124,6 +124,176 @@
             51%, 100% { opacity: 0; }
         }
         
+        /* ========== 引用来源卡片 ========== */
+        .citations-section {
+            margin-top: 12px;
+            border-top: 1px solid #e8e8e8;
+            padding-top: 10px;
+        }
+        .citations-title {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .citation-card {
+            background: #fafbfc;
+            border: 1px solid #e8ecf0;
+            border-left: 3px solid #667eea;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .citation-card:hover {
+            background: #f0f2ff;
+            border-left-color: #764ba2;
+        }
+        .citation-card.expanded {
+            background: #f0f2ff;
+            border-left-color: #764ba2;
+        }
+        .citation-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .citation-doc {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .citation-doc .icon { font-size: 14px; }
+        .citation-page {
+            font-size: 11px;
+            color: #999;
+            background: #f0f0f0;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .citation-snippet {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            padding: 8px 10px;
+            background: white;
+            border-radius: 6px;
+            line-height: 1.5;
+            display: none;
+            border: 1px solid #e8ecf0;
+        }
+        .citation-card.expanded .citation-snippet { display: block; }
+        .citation-expand-hint {
+            font-size: 11px;
+            color: #667eea;
+            margin-top: 4px;
+        }
+        .citation-card.expanded .citation-expand-hint { display: none; }
+        
+        /* 置信度标签 */
+        .confidence-tag {
+            display: inline-block;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
+            font-weight: 500;
+        }
+        .confidence-high {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .confidence-low {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        
+        /* ========== 搜索功能 ========== */
+        .search-area {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .search-box input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+            background: white;
+        }
+        .search-box input:focus { border-color: #667eea; }
+        .search-box button {
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .search-box button:hover { transform: scale(1.05); }
+        .search-box button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        
+        .search-suggestions {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .search-suggestion {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 5px 14px;
+            font-size: 12px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .search-suggestion:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        /* 搜索结果 */
+        .search-result {
+            margin-bottom: 20px;
+        }
+        .search-result-answer {
+            background: #f0f2f5;
+            border-radius: 12px;
+            padding: 15px 20px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            margin-bottom: 12px;
+        }
+        .search-result-meta {
+            font-size: 11px;
+            color: #999;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
         /* ========== 反馈按钮 ========== */
         .feedback-bar {
             display: flex;
@@ -244,6 +414,7 @@
             .input-box { padding: 15px 20px 20px; }
             .guide { padding: 10px 20px; font-size: 12px; }
             .input-box button { min-width: 60px; padding: 15px 20px; }
+            .search-area { padding: 15px 20px; }
         }
     </style>
 </head>
@@ -252,13 +423,34 @@
         <div class="header">
             <h1>📚 发动机排放标准知识库</h1>
             <p>基于 GB17691-2018 和 GB/T17692-2024 标准</p>
-            <div class="version">📅 2026-04-28 | v2.0 (流式输出)</div>
+            <div class="version">📅 2026-04-28 | v3.0 (流式输出 + 引用来源 + 搜索)</div>
+        </div>
+        
+        <!-- 搜索区域 -->
+        <div class="search-area">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 搜索排放标准内容..." onkeypress="if(event.keyCode===13) doSearch()">
+                <button onclick="doSearch()" id="searchBtn">搜索</button>
+            </div>
+            <div class="search-suggestions" id="searchSuggestions">
+                <span class="search-suggestion" onclick="searchByKeyword(this.textContent)">NOx 排放限值</span>
+                <span class="search-suggestion" onclick="searchByKeyword(this.textContent)">WHSC 测试循环</span>
+                <span class="search-suggestion" onclick="searchByKeyword(this.textContent)">国六阶段</span>
+                <span class="search-suggestion" onclick="searchByKeyword(this.textContent)">OBD 诊断</span>
+                <span class="search-suggestion" onclick="searchByKeyword(this.textContent)">PEMS 便携式排放</span>
+                <span class="search-suggestion" onclick="searchByKeyword(this.textContent)">耐久性要求</span>
+            </div>
         </div>
         
         <div class="chat-box" id="chatBox">
             <div class="message assistant">
                 <div class="avatar">🤖</div>
-                <div class="content">你好！我是发动机排放标准专家助手，可以帮你查询排放限值、测试流程、公式计算等。请问有什么可以帮你？</div>
+                <div class="content">你好！我是发动机排放标准专家助手，可以帮你查询排放限值、测试流程、公式计算等。
+
+🔍 上方搜索框可快速搜索标准内容
+💬 下方输入框支持对话式问答
+
+请问有什么可以帮你？</div>
             </div>
         </div>
         
@@ -293,16 +485,124 @@
         const chatBox = document.getElementById('chatBox');
         const questionInput = document.getElementById('questionInput');
         const sendBtn = document.getElementById('sendBtn');
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const searchSuggestions = document.getElementById('searchSuggestions');
         const feedbackOverlay = document.getElementById('feedbackOverlay');
         const feedbackComment = document.getElementById('feedbackComment');
         const feedbackTitle = document.getElementById('feedbackTitle');
         const toast = document.getElementById('toast');
         
-        // 当前会话的问答上下文（用于反馈时关联）
         let currentQuestion = '';
         let currentAnswer = '';
         let pendingRating = '';
         let abortController = null;
+        
+        // ========== 搜索功能 ==========
+        
+        function searchByKeyword(keyword) {
+            searchInput.value = keyword;
+            doSearch();
+        }
+        
+        function doSearch() {
+            const keyword = searchInput.value.trim();
+            if (!keyword) return;
+            
+            searchBtn.disabled = true;
+            searchBtn.textContent = '搜索中...';
+            
+            // 隐藏搜索建议
+            searchSuggestions.style.display = 'none';
+            
+            // 在聊天框显示搜索结果
+            const msgDiv = appendMessage('assistant', '<span class="loading">正在搜索...</span>', false);
+            const contentEl = msgDiv.querySelector('.content');
+            
+            fetch('/api/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keyword: keyword })
+            })
+            .then(res => res.json())
+            .then(data => {
+                searchBtn.disabled = false;
+                searchBtn.textContent = '搜索';
+                
+                if (data.error) {
+                    contentEl.innerHTML = '❌ ' + data.error;
+                    contentEl.classList.add('error');
+                    return;
+                }
+                
+                // 构建搜索结果 HTML
+                let html = '<div class="search-result">';
+                html += '<div class="search-result-answer">' + escapeHtml(data.answer) + '</div>';
+                
+                // 引用来源
+                if (data.citations && data.citations.length > 0) {
+                    html += renderCitations(data.citations);
+                }
+                
+                html += '<div class="search-result-meta">';
+                html += '🔑 关键词：' + escapeHtml(data.keyword);
+                if (data.timestamp) {
+                    html += ' | 🕐 ' + new Date(data.timestamp).toLocaleString('zh-CN');
+                }
+                html += '</div></div>';
+                
+                contentEl.innerHTML = html;
+                contentEl.style.whiteSpace = 'normal';
+            })
+            .catch(err => {
+                searchBtn.disabled = false;
+                searchBtn.textContent = '搜索';
+                contentEl.innerHTML = '❌ 搜索失败：' + err.message;
+                contentEl.classList.add('error');
+            });
+        }
+        
+        // ========== 引用来源渲染 ==========
+        
+        function renderCitations(citations) {
+            if (!citations || citations.length === 0) return '';
+            
+            let html = '<div class="citations-section">';
+            html += '<div class="citations-title">📖 引用来源（' + citations.length + '条）</div>';
+            
+            for (let i = 0; i < citations.length; i++) {
+                const c = citations[i];
+                const hasConfidence = c.score !== null && c.score !== undefined;
+                const isLowConfidence = hasConfidence && c.score < 0.8;
+                const confTag = hasConfidence 
+                    ? (isLowConfidence 
+                        ? '<span class="confidence-tag confidence-low">推测 ' + (c.score * 100).toFixed(0) + '%</span>'
+                        : '<span class="confidence-tag confidence-high">可靠 ' + (c.score * 100).toFixed(0) + '%</span>')
+                    : '';
+                
+                html += '<div class="citation-card" onclick="toggleCitation(this)">';
+                html += '<div class="citation-header">';
+                html += '<span class="citation-doc"><span class="icon">📄</span>' + escapeHtml(c.doc_name) + confTag + '</span>';
+                if (c.page_num) {
+                    html += '<span class="citation-page">第 ' + c.page_num + ' 页</span>';
+                }
+                html += '</div>';
+                if (c.content) {
+                    html += '<div class="citation-snippet">' + escapeHtml(c.content) + '</div>';
+                    html += '<div class="citation-expand-hint">📋 点击展开原文片段</div>';
+                }
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            return html;
+        }
+        
+        function toggleCitation(el) {
+            el.classList.toggle('expanded');
+        }
+        
+        // ========== 消息渲染（带引用支持） ==========
         
         function appendMessage(role, content, withFeedback) {
             const div = document.createElement('div');
@@ -395,13 +695,12 @@
             sendBtn.disabled = true;
             sendBtn.textContent = '思考中...';
             
-            // 创建流式消息容器
             const msgDiv = appendMessage('assistant', '<span class="loading">正在连接知识库...</span><span class="typing-cursor"></span>', false);
             const contentEl = msgDiv.querySelector('.content');
             let fullText = '';
+            let finalCitations = [];
             let isError = false;
             
-            // 使用 EventSource 风格的 fetch 流式请求
             abortController = new AbortController();
             
             fetch('/api/query', {
@@ -418,12 +717,17 @@
                 function read() {
                     return reader.read().then(({ done, value }) => {
                         if (done) {
-                            // 流结束
                             if (!isError && fullText) {
                                 currentQuestion = question;
                                 currentAnswer = fullText;
-                                // 替换为最终消息（带反馈按钮）
-                                const finalDiv = appendMessage('assistant', fullText, true);
+                                
+                                // 构建最终消息（含引用）
+                                let finalHTML = escapeHtml(fullText);
+                                if (finalCitations.length > 0) {
+                                    finalHTML += renderCitations(finalCitations);
+                                }
+                                
+                                const finalDiv = appendMessage('assistant', finalHTML, true);
                                 msgDiv.remove();
                             } else if (isError) {
                                 // 保持错误消息
@@ -444,8 +748,6 @@
                         for (const line of lines) {
                             if (line.startsWith('data: ')) {
                                 const dataStr = line.slice(6);
-                                
-                                // 流结束标记
                                 if (dataStr === '[DONE]') continue;
                                 
                                 try {
@@ -455,7 +757,6 @@
                                         isError = true;
                                         contentEl.innerHTML = '❌ ' + data.error;
                                         contentEl.classList.add('error');
-                                        // 移除光标
                                         const cursor = contentEl.querySelector('.typing-cursor');
                                         if (cursor) cursor.remove();
                                         questionInput.disabled = false;
@@ -466,14 +767,16 @@
                                     }
                                     
                                     if (data.text !== undefined) {
-                                        // data.text 是累积的完整文本（百炼应用模式的特点）
                                         fullText = data.text;
                                         contentEl.innerHTML = escapeHtml(fullText) + '<span class="typing-cursor"></span>';
                                         chatBox.scrollTop = chatBox.scrollHeight;
                                     }
-                                } catch (e) {
-                                    // 忽略解析错误
-                                }
+                                    
+                                    // 提取引用数据
+                                    if (data.citations && data.citations.length > 0) {
+                                        finalCitations = data.citations;
+                                    }
+                                } catch (e) {}
                             }
                         }
                         
@@ -496,7 +799,6 @@
             });
         }
         
-        // HTML 转义
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
