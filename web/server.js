@@ -32,15 +32,16 @@ const POPULAR_SEARCHES = [
 
 // ========== 搜索接口（关键词搜索） ==========
 // 通过百炼 API 的 has_thoughts 功能，提取引用来源作为搜索结果
+// 参数统一使用 query（前端传入）
 app.post('/api/search', (req, res) => {
-    const { keyword } = req.body;
+    const { query } = req.body;
     
-    if (!keyword || !keyword.trim()) {
+    if (!query || !query.trim()) {
         return res.json({ error: '请输入搜索关键词' });
     }
     
     // 构造搜索提示：让 API 返回相关标准内容和引用
-    const searchPrompt = `请搜索以下关键词相关的发动机排放标准内容，并列出关键信息：${keyword.trim()}`;
+    const searchPrompt = `请搜索以下关键词相关的发动机排放标准内容，并列出关键信息：${query.trim()}`;
     
     const postData = JSON.stringify({
         input: { prompt: searchPrompt },
@@ -88,7 +89,7 @@ app.post('/api/search', (req, res) => {
                 }
                 
                 res.json({
-                    keyword: keyword.trim(),
+                    query: query.trim(),
                     answer: answer,
                     citations: citations,
                     timestamp: new Date().toISOString()
@@ -127,10 +128,17 @@ app.post('/api/query', (req, res) => {
         return res.json({ error: '请输入问题' });
     }
     
+    // 优化提示词：先总结后展开，引导追问
+    const enhancedQuestion = `【回答要求】
+1. 第一段必须简洁总结核心答案（100 字内）
+2. 需要时再展开详细说明
+3. 结尾提示用户可进一步提问（如"需要我详细解释 XX 吗？"）
+
+【问题】${question}`;
+    
     const postData = JSON.stringify({
-        input: { prompt: question },
-        parameters: { has_thoughts: true },  // 开启引用来源
-        stream: true
+        input: { prompt: enhancedQuestion },
+        parameters: { has_thoughts: true }  // 开启引用来源（关闭流式，因为 has_thoughts 时 text 在流中为空）
     });
     
     const options = {
@@ -141,109 +149,57 @@ app.post('/api/query', (req, res) => {
         headers: {
             'Authorization': `Bearer ${API_KEY}`,
             'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(postData),
-            'X-DashScope-SSE': 'enable'
+            'Content-Length': Buffer.byteLength(postData)
         }
     };
     
-    // SSE 响应头
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-    
     const clientReq = https.request(options, (response) => {
-        let buffer = '';
-        
-        response.on('data', (chunk) => {
-            buffer += chunk.toString();
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-            
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed.startsWith('data:')) continue;
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+            try {
+                const result = JSON.parse(data);
+                if (result.code) {
+                    return res.json({ error: result.message || 'API 错误', code: result.code });
+                }
                 
-                try {
-                    const data = JSON.parse(trimmed.slice(5));
-                    
-                    if (data.code) {
-                        res.write(`data: ${JSON.stringify({ error: data.message || 'API 错误', code: data.code })}\n\n`);
-                        res.end();
-                        clientReq.destroy();
-                        return;
-                    }
-                    
-                    // 提取文本
-                    if (data.output && data.output.text !== undefined) {
-                        res.write(`data: ${JSON.stringify({
-                            text: data.output.text,
-                            finish_reason: data.output.finish_reason,
-                            session_id: data.output.session_id
-                        })}\n\n`);
-                        
-                        if (data.output.finish_reason === 'stop') {
-                            // 提取引用
-                            const thoughts = data.output.thoughts || [];
-                            const citations = [];
-                            for (const thought of thoughts) {
-                                if (thought.citations) {
-                                    for (const c of thought.citations) {
-                                        citations.push({
-                                            doc_name: c.doc_name || c.title || '未知文档',
-                                            page_num: c.page_num || c.page || null,
-                                            content: c.content || c.snippet || '',
-                                            score: c.score || c.confidence || null
-                                        });
-                                    }
-                                }
-                            }
-                            
-                            // 发送最终消息（含引用）
-                            res.write(`data: ${JSON.stringify({
-                                text: data.output.text,
-                                citations: citations,
-                                finish_reason: 'stop'
-                            })}\n\n`);
-                            res.write('data: [DONE]\n\n');
-                            res.end();
+                const thoughts = result.output?.thoughts || [];
+                const citations = [];
+                for (const thought of thoughts) {
+                    if (thought.citations) {
+                        for (const c of thought.citations) {
+                            citations.push({
+                                doc_name: c.doc_name || c.title || '未知文档',
+                                page_num: c.page_num || c.page || null,
+                                content: c.content || c.snippet || '',
+                                score: c.score || c.confidence || null
+                            });
                         }
                     }
-                } catch (e) {
-                    // 忽略解析错误
                 }
-            }
-        });
-        
-        response.on('end', () => {
-            if (buffer.trim()) {
-                try {
-                    const data = JSON.parse(buffer.trim().replace(/^data:\s*/, ''));
-                    if (data.output?.text !== undefined && !res.writableEnded) {
-                        res.write(`data: ${JSON.stringify({ text: data.output.text })}\n\n`);
-                    }
-                } catch (e) {}
-            }
-            if (!res.writableEnded) {
-                res.write('data: [DONE]\n\n');
-                res.end();
+                
+                if (result.output?.text) {
+                    res.json({
+                        answer: result.output.text,
+                        session_id: result.output.session_id || '',
+                        citations: citations
+                    });
+                } else {
+                    res.json({ error: '无回答', raw: result });
+                }
+            } catch (e) {
+                res.json({ error: '解析失败：' + e.message, raw: data });
             }
         });
     });
     
     clientReq.on('error', (e) => {
-        if (!res.writableEnded) {
-            res.write(`data: ${JSON.stringify({ error: '请求失败：' + e.message })}\n\n`);
-            res.end();
-        }
+        res.json({ error: '请求失败：' + e.message });
     });
     
-    clientReq.setTimeout(120000, () => {
-        if (!res.writableEnded) {
-            res.write(`data: ${JSON.stringify({ error: '请求超时（120 秒），请重试或简化问题' })}\n\n`);
-            res.end();
-        }
+    clientReq.setTimeout(90000, () => {
         clientReq.destroy();
+        res.json({ error: '请求超时（90 秒），请重试或简化问题' });
     });
     
     clientReq.write(postData);

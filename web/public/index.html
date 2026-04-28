@@ -522,7 +522,7 @@
             fetch('/api/search', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ keyword: keyword })
+                body: JSON.stringify({ query: keyword })
             })
             .then(res => res.json())
             .then(data => {

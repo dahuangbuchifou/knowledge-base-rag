@@ -1,0 +1,9 @@
+{
+  "name": "feishu-kb-bot",
+  "version": "1.0.0",
+  "description": "飞书 Bot - 发动机排放标准知识库",
+  "main": "feishu-bot.js",
+  "scripts": {
+    "start": "node feishu-bot.js"
+  }
+}

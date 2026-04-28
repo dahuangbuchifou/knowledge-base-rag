@@ -1,0 +1,12 @@
+{
+  "name": "auto-regs-kb-web",
+  "version": "1.0.0",
+  "description": "汽车法规标准知识库网页版",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.0"
+  }
+}

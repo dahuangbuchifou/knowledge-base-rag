@@ -1,0 +1,22 @@
+{
+  "name": "bailian-kb",
+  "version": "1.0.0",
+  "description": "阿里云百炼知识库集成 - 汽车法规标准查询",
+  "author": "婉儿",
+  "entry": "skill.py",
+  "config": {
+    "api_key": "sk-c74fa97c63254dcd973513a760ba029c",
+    "model": "qwen-max",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "temperature": 0.7,
+    "max_tokens": 2000
+  },
+  "commands": [
+    {
+      "name": "知识库",
+      "alias": ["kb", "query", "查询"],
+      "description": "查询汽车法规标准知识库"
+    }
+  ],
+  "dependencies": ["openai"]
+}
