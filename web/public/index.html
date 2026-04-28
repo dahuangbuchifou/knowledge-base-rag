@@ -113,6 +113,17 @@
         .loading { color: #999; font-style: italic; }
         .error { color: #f44336; background: #ffebee; padding: 10px 15px; border-radius: 10px; }
         
+        /* 打字光标动画 */
+        .typing-cursor::after {
+            content: '▊';
+            animation: blink 0.8s infinite;
+            color: #667eea;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        
         /* ========== 反馈按钮 ========== */
         .feedback-bar {
             display: flex;
@@ -241,7 +252,7 @@
         <div class="header">
             <h1>📚 发动机排放标准知识库</h1>
             <p>基于 GB17691-2018 和 GB/T17692-2024 标准</p>
-            <div class="version">📅 2026-04-27 | v1.0</div>
+            <div class="version">📅 2026-04-28 | v2.0 (流式输出)</div>
         </div>
         
         <div class="chat-box" id="chatBox">
@@ -291,6 +302,7 @@
         let currentQuestion = '';
         let currentAnswer = '';
         let pendingRating = '';
+        let abortController = null;
         
         function appendMessage(role, content, withFeedback) {
             const div = document.createElement('div');
@@ -311,13 +323,12 @@
             div.innerHTML = `<div class="avatar">${role === 'assistant' ? '🤖' : '👤'}</div><div class="content ${isError ? 'error' : ''}">${content}</div>${feedbackHTML}`;
             chatBox.appendChild(div);
             chatBox.scrollTop = chatBox.scrollHeight;
+            return div;
         }
         
         // ========== 反馈功能 ==========
         
-        // 打开反馈弹窗
         function openFeedback(rating, btnEl) {
-            // 标记选中按钮
             document.querySelectorAll('.feedback-btn').forEach(b => b.classList.remove('selected'));
             btnEl.classList.add('selected');
             
@@ -329,23 +340,16 @@
             feedbackComment.focus();
         }
         
-        // 关闭反馈弹窗
         function closeFeedback() {
             feedbackOverlay.classList.remove('active');
-            // 清除选中状态
             document.querySelectorAll('.feedback-btn').forEach(b => b.classList.remove('selected'));
         }
         
-        // 提交反馈
         function submitFeedback() {
             const comment = feedbackComment.value.trim();
-            const overlay = feedbackOverlay;
-            overlay.classList.remove('active');
-            
-            // 清除选中状态
+            feedbackOverlay.classList.remove('active');
             document.querySelectorAll('.feedback-btn').forEach(b => b.classList.remove('selected'));
             
-            // 发送反馈到后端
             fetch('/api/feedback', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -369,19 +373,17 @@
             });
         }
         
-        // 显示提示
         function showToast(msg) {
             toast.textContent = msg;
             toast.classList.add('show');
             setTimeout(() => toast.classList.remove('show'), 2500);
         }
         
-        // 点击弹窗外部关闭
         feedbackOverlay.addEventListener('click', function(e) {
             if (e.target === feedbackOverlay) closeFeedback();
         });
         
-        // ========== 问答逻辑 ==========
+        // ========== 流式问答逻辑 ==========
         
         function sendQuestion() {
             const question = questionInput.value.trim();
@@ -391,36 +393,114 @@
             questionInput.value = '';
             questionInput.disabled = true;
             sendBtn.disabled = true;
-            sendBtn.textContent = '查询中...';
-            appendMessage('assistant', '<span class="loading">正在查询知识库，请稍候（最长 60 秒）...</span>');
+            sendBtn.textContent = '思考中...';
+            
+            // 创建流式消息容器
+            const msgDiv = appendMessage('assistant', '<span class="loading">正在连接知识库...</span><span class="typing-cursor"></span>', false);
+            const contentEl = msgDiv.querySelector('.content');
+            let fullText = '';
+            let isError = false;
+            
+            // 使用 EventSource 风格的 fetch 流式请求
+            abortController = new AbortController();
             
             fetch('/api/query', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({question: question})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: question }),
+                signal: abortController.signal
             })
-            .then(res => res.json())
-            .then(data => {
-                chatBox.lastElementChild.remove();
-                if (data.error) {
-                    appendMessage('assistant', '❌ ' + data.error, false);
-                } else {
-                    currentQuestion = question;
-                    currentAnswer = data.answer;
-                    appendMessage('assistant', data.answer, true);
+            .then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                
+                function read() {
+                    return reader.read().then(({ done, value }) => {
+                        if (done) {
+                            // 流结束
+                            if (!isError && fullText) {
+                                currentQuestion = question;
+                                currentAnswer = fullText;
+                                // 替换为最终消息（带反馈按钮）
+                                const finalDiv = appendMessage('assistant', fullText, true);
+                                msgDiv.remove();
+                            } else if (isError) {
+                                // 保持错误消息
+                            } else {
+                                contentEl.innerHTML = '❌ 未收到回答';
+                            }
+                            questionInput.disabled = false;
+                            sendBtn.disabled = false;
+                            sendBtn.textContent = '发送';
+                            questionInput.focus();
+                            return;
+                        }
+                        
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const dataStr = line.slice(6);
+                                
+                                // 流结束标记
+                                if (dataStr === '[DONE]') continue;
+                                
+                                try {
+                                    const data = JSON.parse(dataStr);
+                                    
+                                    if (data.error) {
+                                        isError = true;
+                                        contentEl.innerHTML = '❌ ' + data.error;
+                                        contentEl.classList.add('error');
+                                        // 移除光标
+                                        const cursor = contentEl.querySelector('.typing-cursor');
+                                        if (cursor) cursor.remove();
+                                        questionInput.disabled = false;
+                                        sendBtn.disabled = false;
+                                        sendBtn.textContent = '发送';
+                                        questionInput.focus();
+                                        return;
+                                    }
+                                    
+                                    if (data.text !== undefined) {
+                                        // data.text 是累积的完整文本（百炼应用模式的特点）
+                                        fullText = data.text;
+                                        contentEl.innerHTML = escapeHtml(fullText) + '<span class="typing-cursor"></span>';
+                                        chatBox.scrollTop = chatBox.scrollHeight;
+                                    }
+                                } catch (e) {
+                                    // 忽略解析错误
+                                }
+                            }
+                        }
+                        
+                        return read();
+                    });
                 }
+                
+                return read();
+            })
+            .catch(err => {
+                if (err.name === 'AbortError') return;
+                contentEl.innerHTML = '❌ 请求失败：' + err.message;
+                contentEl.classList.add('error');
+                const cursor = contentEl.querySelector('.typing-cursor');
+                if (cursor) cursor.remove();
                 questionInput.disabled = false;
                 sendBtn.disabled = false;
                 sendBtn.textContent = '发送';
                 questionInput.focus();
-            })
-            .catch(err => {
-                chatBox.lastElementChild.remove();
-                appendMessage('assistant', '❌ 请求失败：' + err.message, false);
-                questionInput.disabled = false;
-                sendBtn.disabled = false;
-                sendBtn.textContent = '发送';
             });
+        }
+        
+        // HTML 转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     </script>
 </body>
